@@ -9,16 +9,27 @@ import logging
 import random
 import re
 import codecs
+from multiprocessing import Pool
+
+from pymongo import MongoClient
+import time
+import asyncio
 
 # Импортируем подмодули Flask для запуска веб-сервиса.
 from flask import Flask, request
 app = Flask(__name__)
+client = MongoClient("mongodb://user:cubicrobot@ds123029.mlab.com:23029/skills")
 
 logging.basicConfig(level=logging.DEBUG)
 
 # Хранилище данных о сессиях.
 sessionStorage = {}
 regions = {}
+
+def saveToDb(userId, text):
+    print("Saving data to db...")
+    result = client.skills.requests.update({'_id': userId}, {'text': text, 'time': time.time()}, upsert=True)
+    print(result)
 
 def loadRegions():
     f = codecs.open('regions.txt', 'r', 'UTF-8')
@@ -33,7 +44,6 @@ loadRegions()
 # Задаем параметры приложения Flask.
 @app.route("/", methods=['POST'])
 def main():
-    print("Main called")
     # Функция получает тело запроса и возвращает ответ.
     logging.info('Request: %r', request.json)
 
@@ -47,7 +57,9 @@ def main():
 
     handle_dialog(request.json, response)
 
-    logging.info('Response: %r', response)
+    logging.info('Response: %r', response)    
+    print("Before saving to db...")
+    saveToDb(request.json['session']['user_id'], request.json['request']['command'])
 
     return json.dumps(
         response,
